@@ -3,7 +3,6 @@ package redis
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -436,7 +435,11 @@ func (c *PubSub) initChannel(size int) {
 			msg, err := c.Receive()
 			if err != nil {
 				if err == pool.ErrClosed {
-					log.Println("pub-sub: prevented pool err closed. just continue")
+					internal.Logf("pub-sub: prevented pool err closed. just continue, reconnect")
+					c.mu.Lock()
+					c._reconnect(err)
+					c.mu.Unlock()
+
 					//close(c.ch)
 					//return
 				}
