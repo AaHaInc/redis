@@ -347,6 +347,7 @@ func (c *PubSub) ReceiveTimeout(timeout time.Duration) (interface{}, error) {
 
 	cn, err := c.conn()
 	if err != nil {
+		internal.Logf("pub-sub: ReceiveTimeout() failed on c.conn()")
 		return nil, err
 	}
 
@@ -356,6 +357,7 @@ func (c *PubSub) ReceiveTimeout(timeout time.Duration) (interface{}, error) {
 
 	c.releaseConn(cn, err, timeout > 0)
 	if err != nil {
+		internal.Logf("pub-sub: ReceiveTimeout() failed on cn.WithReader()")
 		return nil, err
 	}
 
@@ -434,17 +436,15 @@ func (c *PubSub) initChannel(size int) {
 		for {
 			msg, err := c.Receive()
 			if err != nil {
+				internal.Logf("pub-sub: Receive error %#v", err)
 				if err == pool.ErrClosed {
-					internal.Logf("pub-sub: prevented pool err closed. just continue, reconnect")
-					c.mu.Lock()
-					c._reconnect(err)
-					c.mu.Unlock()
-
-					//close(c.ch)
-					//return
+					close(c.ch)
+					return
 				}
 				if errCount > 0 {
-					time.Sleep(c.retryBackoff(errCount))
+					retry := c.retryBackoff(errCount)
+					internal.Logf("pub-sub: retry receive in %d ms", retry.Nanoseconds()/1e6)
+					time.Sleep(retry)
 				}
 				errCount++
 				continue
